@@ -10,35 +10,122 @@ servers:
 # Basic authentication
 components:
   securitySchemes:
-    bearerAuth:            # arbitrary name for the security scheme
+    bearerAuth: # arbitrary name for the security scheme
       type: http
       scheme: bearer
 security:
   - bearerAuth: []
 
 paths:
+  /login:
+    post:
+      description: Lets the user to login
+      parameters:
+        - name: email
+          description: User's email
+          in: query
+          schema:
+            type: string
+        - name: password
+          description: User's password
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successfully logged in
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "401":
+          description: Bad credentials - Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /register:
+    post:
+      description: Lets a user to register
+      parameters:
+        - name: name
+          description: User's name that will be added in db
+          in: query
+          schema:
+            type: string
+        - name: email
+          description: User's email that will be added in db
+          in: query
+          schema:
+            type: string
+        - name: password
+          description: User's password that will be added in db
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successfully logged in
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
   /categories:
     get:
-      description: Returns a list of categories 
+      description: Returns a list of all categories
       parameters:
-        - name: limit
+        - name: perPage
           in: query
-          description: Limits the number of items on a page
-          schema:
-            type: integer
-        - name: offset
-          in: query
-          description: Specifies the page number of the artists to be displayed
+          description: Specifies the number of the categories to be displayed per page
           schema:
             type: integer
       responses:
-        '200':
-          description: Successfully returned a list of categories
-        '400':
-          description: Invalid request
-  
+        "200":
+          description: Successfully returned a list of all categories
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
   /category:
-    #  ----- Added lines  ----------------------------------------
     post:
       description: Lets a user create a new category
       requestBody:
@@ -46,7 +133,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object 
+              type: object
               required:
                 - name
               properties:
@@ -54,17 +141,357 @@ paths:
                   type: string
                 parent_id:
                   type: integer
-
       responses:
-        '200':
+        "201":
           description: Successfully created a new category
-
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
                 type: object
-                properties:   
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /category/{id}:
+    get:
+      description: Returns the category with that id
+      parameters:
+        - name: id
+          in: path
+          description: id of category to fetch
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Successfully returned the right category
+        "404":
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+    put:
+      description: Lets a user update an existing category
+      parameters:
+        - name: id
+          in: path
+          description: id of category to update
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                parent_id:
+                  type: integer
+      responses:
+        "200":
+          description: Successfully updated a category
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "404":
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+    delete:
+      description: Lets a user delete a category by its id
+      parameters:
+        - name: id
+          in: path
+          description: id of category to delete
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Successfully deleted(No Content)
+        "404":
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /categories-tree:
+    get:
+      description: Returns a list of all categories and its childs like a tree structure
+      responses:
+        "200":
+          description: Successfully returned the list
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  #Products
+  /products:
+    get:
+      description: Returns a list of all products
+      parameters:
+        - name: perPage
+          in: query
+          description: Specifies the number of the products to be displayed per page
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Successfully returned a list of all products
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /product:
+    post:
+      description: Lets a user create a new product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - category_id
+                - description
+                - quantity
+                - price
+              properties:
+                name:
+                  type: string
+                category_id:
+                  type: integer
+                description:
+                  type: string
+                quantity:
+                  type: integer
+                price:
+                  type: number
+                image:
+                  type: string
+                status:
+                  type: boolean
+      responses:
+        "201":
+          description: Successfully created a new product
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /product/{id}:
+    get:
+      description: Returns the product with that id
+      parameters:
+        - name: id
+          in: path
+          description: id of product to fetch
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Successfully returned the right product
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+    put:
+      description: Lets a user update an existing product
+      parameters:
+        - name: id
+          in: path
+          description: id of product to update
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - category_id
+                - description
+                - quantity
+                - price
+              properties:
+                name:
+                  type: string
+                category_id:
+                  type: integer
+                description:
+                  type: string
+                quantity:
+                  type: integer
+                price:
+                  type: number
+                image:
+                  type: string
+                status:
+                  type: boolean
+      responses:
+        "200":
+          description: Successfully updated a product
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+    delete:
+      description: Lets a user delete a product by its id
+      parameters:
+        - name: id
+          in: path
+          description: id of product to delete
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Successfully deleted(No Content)
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
                   message:
                     type: string

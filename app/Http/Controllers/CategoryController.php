@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use PhpParser\Node\Stmt\TryCatch;
 
 /**
  *
@@ -18,12 +20,33 @@ class CategoryController extends ApiController
      * @param Request $request
      * @return JsonResponse
      */
-    public function getAll(Request $request){
+    public function getAll(Request $request): JsonResponse
+    {
         try {
-            return $this->sendResponse(Category::all()->toArray());
-        } catch (\Exception $exception) {
+            $categories = Category::query();
+
+            $perPage = $request->get('perPage', 20);
+            $search = $request->get('search', '');
+
+            if ($search && $search !== '') {
+                $categories = $categories->where('name', 'LIKE', '%' . $search . '%');
+            }
+
+            $categories = $categories->paginate($perPage);
+
+            $results = [
+                'data' => $categories->items(),
+                'currentPage' => $categories->currentPage(),
+                'perPage' => $categories->perPage(),
+                'total' => $categories->total(),
+                'hasMorePages' => $categories->hasMorePages()
+            ];
+
+            return $this->sendResponse($results);
+        } catch (Exception $exception) {
             Log::error($exception);
-            return $this->sendError('Something went wrong, please contact administrator!');
+
+            return $this->sendError('Something went wrong, please contact administrator!', [], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -31,7 +54,8 @@ class CategoryController extends ApiController
      * @param Request $request
      * @return JsonResponse
      */
-    public function add(Request $request){
+    public function add(Request $request): JsonResponse
+    {
         try {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|max:50',
@@ -58,11 +82,11 @@ class CategoryController extends ApiController
             $category->parent_id = $parentId;
             $category->save();
 
-            return $this->sendResponse($category->toArray());
-        } catch (\Exception $exception) {
+            return $this->sendResponse([], Response::HTTP_CREATED);
+        } catch (Exception $exception) {
             Log::error($exception);
 
-            return $this->sendError('Something went wrong, please contact administrator!');
+            return $this->sendError('Something went wrong, please contact administrator!', [], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -70,13 +94,20 @@ class CategoryController extends ApiController
      * @param $id
      * @return JsonResponse
      */
-    public function get($id){
-        try{
-            return $this->sendResponse(Category::findOrFail($id)->toArray());
-        } catch (\Exception $exception) {
+    public function get($id): JsonResponse
+    {
+        try {
+            $category = Category::find($id);
+
+            if (!$category) {
+                return $this->sendError('Category not found!', [], Response::HTTP_NOT_FOUND);
+            }
+
+            return $this->sendResponse($category->toArray());
+        } catch (Exception $exception) {
             Log::error($exception);
 
-            return $this->sendError('Something went wrong, please contact administrator!');
+            return $this->sendError('Something went wrong, please contact administrator!', [], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -85,44 +116,119 @@ class CategoryController extends ApiController
      * @param Request $request
      * @return JsonResponse
      */
-    public function update($id, Request $request){
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|max:50|unique:categories,name',
-            'parent_id' => 'nullable|exists:categories,id'
-        ]);
+    public function update($id, Request $request): JsonResponse
+    {
+        try {
+            $category = Category::find($id);
 
-        if ($validator->fails()) {
-            return $this->sendError('Bad request!', $validator->messages()->toArray());
+            if (!$category) {
+                return $this->sendError('Category not found!', [], Response::HTTP_NOT_FOUND);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|max:50',
+                'parent_id' => 'nullable|exists:categories,id'
+            ]);
+
+            if ($validator->fails()) {
+                return $this->sendError('Bad request!', $validator->messages()->toArray());
+            }
+
+            $name = $request->get('name');
+            $parentId = $request->get('parent_id');
+
+            if ($parentId) {
+                $parent = Category::find($parentId);
+
+                if ($parent->parent?->parent) {
+                    return $this->sendError('You can\'t add a 3rd level subcategory!');
+                }
+
+                if ($parentId === $category->id) {
+                    return $this->sendError('You can\'t add same category as parent!');
+                }
+            }
+
+            $category->name = $name;
+            $category->parent_id = $parentId;
+            $category->save();
+
+            return $this->sendResponse($category->toArray());
+        } catch (Exception $exception) {
+            Log::error($exception);
+
+            return $this->sendError('Something went wrong, please contact administrator!', [], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        $category = Category::findOrFail($id);
-        $category->name = $request->get('name');
-        $category->parent_id = $request->get('parent_id');
-        $category->save();
-
-        return $this->sendResponse($category->toArray());
     }
 
     /**
      * @param $id
-     * @return void|JsonResponse
+     * @return JsonResponse
      */
-    public function delete($id){
+    public function delete($id): JsonResponse
+    {
         try {
-            $category = Category::findOrFail($id);
+            $category = Category::find($id);
 
-             foreach ($category->childs as $child){
-                $child->delete();
+            if (!$category) {
+                return $this->sendError('Category not found!', [], Response::HTTP_NOT_FOUND);
             }
-            $category->delete();
-            
-            return $this->sendResponse([
-                'deleted_category&subcategories' => $category
-            ]);
 
-        } catch (\Exception $exception) {
+            DB::beginTransaction();
+
+            $category->delete();
+
+            DB::commit();
+
+            return $this->sendResponse([], Response::HTTP_NO_CONTENT);
+        } catch (Exception $exception) {
             Log::error($exception);
-            return $this->sendError('Something went wrong, please contact administrator!');
+
+            return $this->sendError('Something went wrong, please contact administrator!', [], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @return JsonResponse
+     */
+    public function tree(): JsonResponse
+    {
+        try {
+            $tree = [];
+            $subcategoryParents = [];
+
+            $categories = Category::all();
+
+            foreach ($categories as $category) {
+                if (!$category->parent_id) {
+                    $tree[$category->id] = [
+                        'category' => $category,
+                        'childs' => []
+                    ];
+                } else {
+                    if (isset($tree[$category->parent_id])) {
+                        $tree[$category->parent_id]['childs'][$category->id] = [
+                            'category' => $category,
+                            'childs' => []
+                        ];
+
+                        $subcategoryParents[$category->id] = $category->parent_id;
+                    } else {
+                        $topParent = $subcategoryParents[$category->parent_id];
+
+                        $tree[$topParent]['childs'][$category->parent_id]['childs'][$category->id] = [
+                            'category' => $category,
+                            'childs' => []
+                        ];
+                    }
+                }
+            }
+
+            return $this->sendResponse($tree);
+        } catch (Exception $exception) {
+            Log::error($exception);
+
+            return $this->sendError('Something went wrong, please contact administrator!', [], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }
