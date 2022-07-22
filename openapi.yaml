@@ -10,124 +10,252 @@ servers:
 # Basic authentication
 components:
   securitySchemes:
-    bearerAuth: # arbitrary name for the security scheme
+    bearerAuth:
       type: http
       scheme: bearer
-security:
-  - bearerAuth: []
 
 paths:
   /login:
     post:
-      description: Lets the user to login
-      parameters:
-        - name: email
-          description: User's email
-          in: query
-          schema:
-            type: string
-        - name: password
-          description: User's password
-          in: query
-          schema:
-            type: string
+      tags: [ auth ]
+      summary: Log in an user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
       responses:
-        "200":
-          description: Successfully logged in
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "401":
-          description: Bad credentials - Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        200:
+          description: Logged in
+        400:
+          description: Bad input/credentials
+        406:
+          description: Email not verified
+        500:
+          description: Server error
 
   /register:
     post:
-      description: Lets a user to register
-      parameters:
-        - name: name
-          description: User's name that will be added in db
-          in: query
-          schema:
-            type: string
-        - name: email
-          description: User's email that will be added in db
-          in: query
-          schema:
-            type: string
-        - name: password
-          description: User's password that will be added in db
-          in: query
-          schema:
-            type: string
+      tags: [ auth ]
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+                - password_confirmation
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                password_confirmation:
+                  type: string
       responses:
-        "200":
-          description: Successfully logged in
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        201:
+          description: Created and verify code sent
+        400:
+          description: Bad input
+        500:
+          description: Server error
+
+  /verify-email:
+    post:
+      tags: [ auth ]
+      summary: Verify email address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - email
+              properties:
+                code:
+                  type: string
+                email:
+                  type: string
+      responses:
+        200:
+          description: Email verified
+        400:
+          description: Bad input
+        500:
+          description: Server error
+
+  /resend-verify-email:
+    post:
+      tags: [ auth ]
+      summary: Resend verify email address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+      responses:
+        200:
+          description: Resend verification email
+        400:
+          description: Bad input
+        406:
+          description: Email already verified
+        500:
+          description: Server error
+
+  /forgot-password:
+    post:
+      tags: [ auth ]
+      summary: Reset password for an user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+      responses:
+        200:
+          description: Code sent on email
+        400:
+          description: Bad input
+        406:
+          description: User requested password reset code in last hour
+        500:
+          description: Server error
+
+  /change-password:
+    post:
+      tags: [ auth ]
+      summary: Change resseted password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - email
+                - password
+              properties:
+                code:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        200:
+          description: Password changed
+        400:
+          description: Bad input
+        406:
+          description: Time exceeded to use the code, a new code should be generated
+        500:
+          description: Server error
+
+  /user:
+    get:
+      tags: [ user ]
+      summary: Returns the authentificated used
+      responses:
+        200:
+          description: Password changed
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
+    post:
+      tags: [ user ]
+      summary: Update the authentificated used
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        200:
+          description: Password changed
+        400:
+          description: Bad input
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
 
   /categories:
     get:
-      description: Returns a list of all categories
+      summary: Returns a list of categories
+      tags: [ categories ]
       parameters:
-        - name: perPage
+        - name: page
           in: query
-          description: Specifies the number of the categories to be displayed per page
+          description: Request page, default 1
           schema:
             type: integer
+        - name: perPage
+          in: query
+          description: How many items returned, default 20
+          schema:
+            type: integer
+        - name: search
+          in: query
+          description: Search for specific categories, you can type part of category
+          schema:
+            type: string
       responses:
-        "200":
-          description: Successfully returned a list of all categories
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        200:
+          description: Return a list of paginated categories
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
 
   /category:
     post:
-      description: Lets a user create a new category
+      summary: Create a new category
+      tags: [ categories ]
       requestBody:
         required: true
         content:
@@ -141,65 +269,47 @@ paths:
                   type: string
                 parent_id:
                   type: integer
+                  default: null
       responses:
-        "201":
-          description: Successfully created a new category
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        201:
+          description: Category created
+        400:
+          description: Bad input
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
 
   /category/{id}:
     get:
-      description: Returns the category with that id
+      tags: [ categories ]
+      summary: Return a specific category
       parameters:
         - name: id
           in: path
-          description: id of category to fetch
           required: true
           schema:
             type: integer
       responses:
-        "200":
-          description: Successfully returned the right category
-        "404":
+        200:
+          description: Return a category object
+        401:
+          description: Unauthorized
+        404:
           description: Category not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
+
     put:
-      description: Lets a user update an existing category
+      tags: [ categories ]
+      summary: Update a specific category
       parameters:
         - name: id
           in: path
-          description: id of category to update
           required: true
           schema:
             type: integer
@@ -216,109 +326,100 @@ paths:
                   type: string
                 parent_id:
                   type: integer
+                  default: null
       responses:
-        "200":
-          description: Successfully updated a category
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "404":
+        200:
+          description: Category updated
+        400:
+          description: Bad input
+        401:
+          description: Unauthorized
+        404:
           description: Category not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
+
     delete:
-      description: Lets a user delete a category by its id
+      tags: [ categories ]
+      summary: Delete a category
       parameters:
-        - name: id
-          in: path
-          description: id of category to delete
-          required: true
+        - in: path
+          name: id
           schema:
             type: integer
+          required: true
       responses:
-        "204":
-          description: Successfully deleted(No Content)
-        "404":
+        204:
+          description: Category deleted
+        401:
+          description: Unauthorized
+        404:
           description: Category not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
 
   /categories-tree:
     get:
-      description: Returns a list of all categories and its childs like a tree structure
+      tags: [ categories ]
+      summary: Returns a list of categories as a tree
       responses:
-        "200":
-          description: Successfully returned the list
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        200:
+          description: Return category tree
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
 
-  #Products
   /products:
     get:
-      description: Returns a list of all products
+      summary: Returns a list of products
+      tags: [ products ]
       parameters:
+        - name: page
+          in: query
+          description: Request page, default 1
+          schema:
+            type: integer
         - name: perPage
           in: query
-          description: Specifies the number of the products to be displayed per page
+          description: How many items returned, default 20
+          schema:
+            type: integer
+        - name: search
+          in: query
+          description: Search for specific product name or description, you can type part of it
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: get only products in specific category
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: get only products with specific status
           schema:
             type: integer
       responses:
-        "200":
-          description: Successfully returned a list of all products
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        200:
+          description: Return a list of paginated products
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
 
   /product:
     post:
-      description: Lets a user create a new product
+      summary: Create a new product
+      tags: [ products ]
       requestBody:
         required: true
         content:
@@ -342,69 +443,54 @@ paths:
                   type: integer
                 price:
                   type: number
+                  format: float
                 image:
                   type: string
+                  format: binary
+                  default: null
                 status:
-                  type: boolean
+                  type: integer
+                  default: 0
       responses:
-        "201":
-          description: Successfully created a new product
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        201:
+          description: Product created
+        400:
+          description: Bad input
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
 
   /product/{id}:
     get:
-      description: Returns the product with that id
+      tags: [ products ]
+      summary: Return a specific product
       parameters:
         - name: id
           in: path
-          description: id of product to fetch
           required: true
           schema:
             type: integer
       responses:
-        "200":
-          description: Successfully returned the right product
-        "404":
+        200:
+          description: Return a product object
+        401:
+          description: Unauthorized
+        404:
           description: Product not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
+
     put:
-      description: Lets a user update an existing product
+      tags: [ products ]
+      summary: Update a specific product
       parameters:
         - name: id
           in: path
-          description: id of product to update
           required: true
           schema:
             type: integer
@@ -431,67 +517,97 @@ paths:
                   type: integer
                 price:
                   type: number
-                image:
-                  type: string
+                  format: float
                 status:
-                  type: boolean
+                  type: integer
+                  default: 0
       responses:
-        "200":
-          description: Successfully updated a product
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "404":
+        200:
+          description: Product updated
+        400:
+          description: Bad input
+        401:
+          description: Unauthorized
+        404:
           description: Product not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
+
     delete:
-      description: Lets a user delete a product by its id
+      tags: [ products ]
+      summary: Delete a product
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        204:
+          description: Product deleted
+        401:
+          description: Unauthorized
+        404:
+          description: Product not found
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
+
+  /product/{id}/image:
+    post:
+      tags: [ products ]
+      summary: Update a product image
       parameters:
         - name: id
           in: path
-          description: id of product to delete
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
       responses:
-        "204":
-          description: Successfully deleted(No Content)
-        "404":
+        200:
+          description: Product image updated
+        400:
+          description: Bad input
+        401:
+          description: Unauthorized
+        404:
           description: Product not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
+
+  /products/{categoryID}:
+    get:
+      tags: [ products ]
+      summary: Get all products for category
+      parameters:
+        - in: path
+          name: categoryID
+          schema:
+            type: integer
+          required: true
+      responses:
+        200:
+          description: Return a list of products for a category tree
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+      security:
+        - bearerAuth: [ ]
